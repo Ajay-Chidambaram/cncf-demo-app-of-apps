@@ -1,0 +1,154 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: default-latest-v1alpha1.dynamo.iam.crossplane.io
+spec:
+  compositeTypeRef:
+    apiVersion: iam.aws.crossplane.tech/v1alpha1
+    kind: DBInstance
+
+  writeConnectionSecretsToNamespace: crossplane
+
+  mode: Pipeline
+  pipeline:
+
+  - step: create-dynamodb-resources
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: dynamodb.aws.upbound.io/v1beta1
+          kind: Table
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: "dynamodb-table"  
+            name: {{ .observed.composite.resource.spec.tableName }}
+          spec:
+            forProvider:
+              attribute:
+                - name: {{ .observed.composite.resource.spec.attributeName | default "myAttribute" }}
+                  type: S
+              hashKey: myAttribute
+              readCapacity: {{ .observed.composite.resource.spec.capacity.read | default 1 }}
+              region:  {{ .observed.composite.resource.spec.awsRegion }}
+              streamEnabled: true
+              streamViewType: NEW_AND_OLD_IMAGES
+              writeCapacity: {{ .observed.composite.resource.spec.capacity.write | default 1 }}
+              tags: {{ .observed.composite.resource.spec.customTags | toYaml | nindent 6 }}
+            providerConfigRef:
+              name: irsa-providerconfig
+
+  - step: create-iam-resources
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: iam.aws.upbound.io/v1beta1
+          kind: Role
+          metadata:
+            labels:
+              db/{{ .observed.composite.resource.spec.roleName }}: "1"
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: "iam-role"
+            name: {{ .observed.composite.resource.spec.roleName }}
+          spec:
+            forProvider:
+              assumeRolePolicy: >-
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Service": [
+                            "ec2.amazonaws.com"
+                          ]
+                      },
+                      "Action": ["sts:AssumeRole"]
+                    }
+                  ]
+                }
+              tags: {{ .observed.composite.resource.spec.customTags | toYaml | nindent 6 }}
+            providerConfigRef:
+              name: irsa-providerconfig
+
+          ---
+          apiVersion: iam.aws.upbound.io/v1beta1
+          kind: Policy
+          metadata:
+            labels:
+              db/{{ .observed.composite.resource.spec.roleName }}-{{ "policy" }}: "1"
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: "iam-role-policy"
+            name: {{ .observed.composite.resource.spec.roleName }}-policy
+          spec:
+            forProvider:
+              policy: >-
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Action": [
+                        "dynamodb:*"
+                      ],
+                      "Effect": "Allow",
+                      "Resource": [
+                        {{- if ne .observed.resources nil }}
+                        {{- if eq (getResourceCondition "Ready" ( index .observed.resources "dynamodb-table" )).Status "True" }}
+                          "{{ ( index .observed.resources "dynamodb-table" ).resource.status.atProvider.arn }}"
+                        {{- else }}
+                          "*"
+                        {{- end }}
+                        {{- end }}
+                      ]
+                    }
+                  ]
+                }
+              tags: {{ .observed.composite.resource.spec.customTags | toYaml | nindent 6 }}
+            providerConfigRef:
+              name: irsa-providerconfig
+
+          ---
+          apiVersion: iam.aws.upbound.io/v1beta1
+          kind: RolePolicyAttachment
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: "iam-role-policy-attachment"
+            name: {{ .observed.composite.resource.spec.roleName }}-policy-attachment
+          spec:
+            forProvider:
+              roleSelector:
+                matchControllerRef: true
+                matchLabels:
+                  db/{{ .observed.composite.resource.spec.roleName }}: "1"
+              policyArnSelector:
+                matchControllerRef: true
+                matchLabels:
+                  db/{{ .observed.composite.resource.spec.roleName }}-{{ "policy" }}: "1"
+            providerConfigRef:
+              name: irsa-providerconfig
+          ---
+
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: function-auto-ready
+  
+  - step: sequence-creation
+    functionRef:
+      name: function-sequencer
+    input:
+      apiVersion: sequencer.fn.crossplane.io/v1beta1
+      kind: Input
+      rules:
+        - sequence:
+          - create-dynamodb-resources
+          - create-iam-resources
+
