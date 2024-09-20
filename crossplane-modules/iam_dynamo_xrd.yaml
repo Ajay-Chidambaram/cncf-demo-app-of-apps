@@ -1,0 +1,100 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: dbinstances.iam.aws.crossplane.tech
+spec:
+  group: iam.aws.crossplane.tech
+  names:
+    kind: DBInstance
+    plural: dbinstances
+  claimNames:
+    kind: DBInstanceClaim
+    plural: dbinstanceclaims
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              managementPolicies:
+                default:
+                - '*'
+                description: |-
+                  ManagementPolicies specify the array of actions Crossplane is allowed to
+                  take on the managed and external resources.
+                items:
+                  description: |-
+                    A ManagementAction represents an action that the Crossplane controllers
+                    can take on an external resource.
+                  enum:
+                  - Observe
+                  - Create
+                  - Update
+                  - Delete
+                  - LateInitialize
+                  - '*'
+                  type: string
+                type: array
+              tableName:
+                type: string
+                description: |
+                  The name of the Dynamodb table.
+              roleName:
+                type: string
+                description: |
+                  The name of the AWS IAM Role.
+              awsRegion:
+                type: string
+                description: |
+                  AWS regon for all inner AWS resources.
+              customTags:
+                type: object
+                description: |
+                  Custom tags to be added to the nested resources. Each key-value pair represents a tag.
+                additionalProperties:
+                  type: string
+              attributeName:
+                type: string
+                description: |
+                  The name of the attribute.
+              capacity:
+                type: object
+                description: |
+                  The capacity of the table.
+                properties:
+                  read:
+                    type: integer
+                    description: |
+                      The read capacity of the table.
+                  write:
+                    type: integer
+                    description: |
+                      The write capacity of the table.
+            required:
+            - awsRegion
+            - tableName
+            - roleName
+          status:
+            type: object
+            properties:
+              table:
+                type: object
+                properties:
+                  key:
+                    type: object
+                    properties:
+                      arn:
+                        type: string
+              iam:
+                type: object
+                properties:
+                  role:
+                    type: object
+                    properties:
+                      arn:
+                        type: string
