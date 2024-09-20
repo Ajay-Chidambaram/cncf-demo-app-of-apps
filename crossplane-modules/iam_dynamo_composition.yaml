@@ -137,6 +137,28 @@ spec:
               name: irsa-providerconfig
           ---
 
+  - step: store-status-and-connection-details
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: iam.aws.crossplane.tech/v1alpha1
+          kind: DBInstance
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: "dynamodb-iam-details"
+          {{- if eq .observed.resources nil }}
+          status: {}
+          {{- else }}
+          status:
+            table: {{ ( index .observed.resources "dynamodb-table" ).resource.status.atProvider.arn }}
+            iam: {{ ( index .observed.resources "iam-role" ).resource.status.atProvider.arn }}
+          {{- end }}
+
   - step: automatically-detect-ready-composed-resources
     functionRef:
       name: function-auto-ready
@@ -151,4 +173,4 @@ spec:
         - sequence:
           - create-dynamodb-resources
           - create-iam-resources
-
+          - store-status-and-connection-details

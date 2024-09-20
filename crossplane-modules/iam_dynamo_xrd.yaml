@@ -83,18 +83,10 @@ spec:
             type: object
             properties:
               table:
-                type: object
-                properties:
-                  key:
-                    type: object
-                    properties:
-                      arn:
-                        type: string
+                description: |
+                  The ARN of the Dynamodb table.
+                type: string
               iam:
-                type: object
-                properties:
-                  role:
-                    type: object
-                    properties:
-                      arn:
-                        type: string
+                description: |
+                  The ARN of the IAM Role.
+                type: string
