@@ -1,10 +1,10 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: default-latest-v1alpha1.dynamo.iam.crossplane.io
+  name: default-latest-v1alpha1.dynamo.iam.demo.io
 spec:
   compositeTypeRef:
-    apiVersion: iam.aws.crossplane.tech/v1alpha1
+    apiVersion: iam.aws.demo.tech/v1alpha1
     kind: DBInstance
 
   writeConnectionSecretsToNamespace: crossplane
@@ -146,7 +146,7 @@ spec:
       source: Inline
       inline:
         template: |
-          apiVersion: iam.aws.crossplane.tech/v1alpha1
+          apiVersion: iam.aws.demo.tech/v1alpha1
           kind: DBInstance
           metadata:
             annotations:

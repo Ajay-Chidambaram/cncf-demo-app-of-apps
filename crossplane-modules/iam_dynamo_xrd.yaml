@@ -1,9 +1,9 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
-  name: dbinstances.iam.aws.crossplane.tech
+  name: dbinstances.iam.aws.demo.tech
 spec:
-  group: iam.aws.crossplane.tech
+  group: iam.aws.demo.tech
   names:
     kind: DBInstance
     plural: dbinstances
